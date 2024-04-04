@@ -25,7 +25,7 @@
     <p><em>This document is non-normative.</em></p>
 
     <section id="abstract">
-      <p>Authentication is not specified by the [[[ActivityPub]]] standard. In practice, the fediverse uses [[[RFC9421]]] widely to authenticate users making requests, using a relatively consistent profile. This document describes that profile and the fediverse's current usage of HTTP Signatures, recommends best practices, and suggests directions for future work.</p>
+      <p>Authentication is not specified by the [[[ActivityPub]]] standard. In practice, the fediverse mostly uses [[[RFC9421]]] to authenticate users making requests, using a relatively consistent profile. This document describes that profile and usage, recommends best practices, and evaluates their success so far.</p>
     </section>
 
     <section id="sotd">
@@ -33,22 +33,22 @@
 
     <section>
       <h2>Introduction</h2>
-      <p>ActivityPub lets different people and groups interact on the fediverse without an existing shared trust anchor. That's great! They still need some form of trust model, though, even if the protocol is decentralized. Specifically, they need to authenticate actors who send activities and serve objects, and they need to check whether those actors are authorized to send those activities and serve those objects.</p>
+      <p>[[ActivityPub]] lets people interact on the fediverse without an existing shared trust anchor. That's great! They still need some form of trust model, though, even if the protocol is decentralized. Specifically, they need to authenticate actors who send activities and request objects, and they need to check whether those actors are authorized to send those activities and request those objects.</p>
 
-<p>The ActivityPub spec leaves authentication and authorization largely unspecified. It implies that authorization is a "same origin model" (not to be confused with web browsers): an actor can generally only create, update, or delete objects with itself as actor or attributedTo. Some of this is deferred to ActivityStreams 2.0.</p>
+<p>The ActivityPub standard leaves authentication and authorization largely unspecified. It implies that authorization is a "same origin model" (not to be confused with web browsers): an actor can generally only create, update, or delete objects with itself as actor or <code>attributedTo</code>. Some of this is deferred to [[[activitystreams-core]]].</p>
 
-<p>ActivityPub leaves authentication similarly unspecified. In practice, the fediverse currently uses a custodial trust model: each user has one or more asymmetric keypairs. Instances (servers) are generally trusted to hold their users' private keys, serve their public keys, generate signatures, and serve their objects and send their activities in good faith. SSL is required for server-to-server HTTP connections in order to authenticate server domains.</p>
+<p>For authentication, in practice, the fediverse currently uses a custodial trust model. Each user has one or more asymmetric keypairs, and their instance (server) is generally trusted to hold their private keys, serve their public keys, generate signatures, and serve objects and send activities on their behalf. Most servers require SSL for server-to-server HTTP connections in order to authenticate server domains.</p>
 
-<p>This SSL requirement is the extent of authorization for HTTP GETs that fetch objects. However, ActivityPub does suggest HTTP Signatures and Linked Data signatures as additional mechanisms, and inbox delivery POSTs generally use both. They include HTTP Signatures from the sending actor, and sometimes also LD Signatures from the original actor for inbox forwarding.</p>
+<p>ActivityPub suggests [[[RFC9421]]] and <a href="https://web.archive.org/web/20170923124140/https://w3c-dvcg.github.io/ld-signatures/">Linked Data Signatures</a> as additional authentication mechanisms. ActivityPub inbox delivery POSTs generally include an HTTP Signature from the sending actor, and for inbox forwarding, sometimes also an LD Signature from the original actor. Object and activity GETs often include an HTTP Signature from the requesting actor.</p>
 
-<p>This document describes the fediverse's current usage of HTTP Signatures, recommends best practices, and suggests directions for future work.</p>
+<p>This document describes the fediverse's current usage of HTTP Signatures, recommends best practices, and evaluates their success so far.
 
     <section>
       <h3>Related work</h3>
 
 <p>Other decentralized social protocols have similar trust models and authentication techniques. Almost are all some combination of SSL and/or per-user asymmetric keypairs. Here are a few examples.</p>
 <ul>
-<li>The <a href="https://indieweb.org/">IndieWeb</a> ecosystem uses primarily SSL for authentication. Data is always fetched via HTTP GETs, and each user is generally expected to have their own [sub]domain. It also uses [[IndieAuth]], a domain-based OAuth ([[RFC6749]]) profile, to authenticate users with their own servers, but not for requests between servers themselves.</li>
+<li>The <a href="https://indieweb.org/">IndieWeb</a> ecosystem uses primarily SSL for authentication. Data is always fetched via HTTP GETs, and each user is generally expected to have their own [sub]domain. It also uses [[IndieAuth]], a domain-based OAuth [[RFC6749]] profile, to authenticate users with their own servers, but not for requests between servers themselves.</li>
 <li><a href="https://atproto.com/">AT Protocol</a> <a href="https://atproto.com/specs/did">uses DIDs as user identities</a>, specifically <a href="https://github.com/did-method-plc/did-method-plc">did:plc</a> and <a href="https://w3c-ccg.github.io/did-method-web/">did:web</a>. Each user has <a href="https://atproto.com/guides/overview#account-portability">two asymmetric keypairs, a signing key and a recovery key</a>. User data records are signed with one of these keys, usually the signing key, and other services in the network verify those signatures.</li>
 <li><a href="https://nostr.com/">Nostr</a> users publish an asymmetric keypair inside their <a href="https://github.com/nostr-protocol/nips/blob/master/01.md">NIP-01</a> user profile event to one or more relays. They sign all other events they publish with their private key.</li>
 </ul>
@@ -62,16 +62,16 @@
 <p>We've refrained from duplicating vpzom's full contents, but here are a few highlights.</p>
 <ul>
 <li>
-<p>All 16 projects support HTTP Signatures, both generating and sending them in outbound AP HTTP requests and validating signatures on incoming AP HTTP requests that include them.</p>
+<p>All 16 projects support HTTP Signatures, both generating and sending them in outbound requests and validating signatures on incoming requests.</p>
 </li>
 <li>
 <p>Based on this data and more, [[[http-signatures]]] aka <em>cavage-12</em> is still the most commonly supported version in the fediverse by far. Not many projects support later versions, especially not projects with large user or instance bases.</p>
 </li>
 <li>
-<p>Very few projects share implementation code. PeerTube and Misskey both use <a href="https://www.npmjs.com/package/@peertube/http-signature">@peertube/http-signature</a>, Pleroma and Mobilizon both use <a href="https://git.pleroma.social/pleroma/elixir-libraries/http_signatures">pleroma/http_signatures</a>, and the rest all use their own implementations.</p>
+<p>Very few projects share implementation code. PeerTube and Misskey both use <a href="https://www.npmjs.com/package/@peertube/http-signature">@peertube/http-signature</a>, Pleroma and Mobilizon both use <a href="https://git.pleroma.social/pleroma/elixir-libraries/http_signatures">pleroma/http_signatures</a>, the rest all use their own implementations.</p>
 </li>
 <li>
-<p>All projects except one support the <code>hs2019</code> placeholder algorithm in at least some form. This is a good sign that the fediverse is gradually advancing the version(s) of HTTP Signatures it supports, but getting past <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures">cavage-12</a> will take more work.</p>
+<p>All projects except one support the <code>hs2019</code> placeholder algorithm in at least some form. This is a good sign that the fediverse is gradually advancing the version(s) of HTTP Signatures it supports, but getting past cavage-12 will take more effort.</p>
 </li>
 </ul>
     </section>
@@ -91,7 +91,7 @@
 <li>If this is a new actor, generate and store a 2048-bit or larger <a href="https://en.wikipedia.org/wiki/RSA_(cryptosystem)">RSA keypair</a>. (Ed25519 is more modern, but not yet widely supported in the fediverse.) Use an existing, mature, widely used cryptography library.</li>
 </ol>
 </li>
-<li>Generate a <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Digest"><code>Digest</code></a> header value ([[RFC3230]]):
+<li>Generate a <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Digest"><code>Digest</code></a> [[RFC3230]] header value :
 <ol>
 <li>Generate the <a href="https://en.wikipedia.org/wiki/SHA-2">SHA-256 hash</a> of the request body.</li>
 <li>Base64-encode that hash.</li>
@@ -115,11 +115,11 @@
 
 <p>Here's how to verify an incoming request's HTTP Signature, as described in <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#autoid-15">cavage-12 section 2.5</a>. If the verification fails, and you require a valid signature for the given request, you should return an HTTP 401 error response.</p>
 <ol>
-<li>The HTTP Signature string is the value of the HTTP request's <code>Signature</code> header. If that header is not present, the request has no HTTP Signature.</li>
+<li>The HTTP Signature string is the value of the HTTP request's <code>Signature</code> header. If that header is not present, the request has no signature.</li>
 <li>Extract the <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#autoid-6"><code>keyId</code> parameter</a> from the HTTP Signature.</li>
 <li>Follow the instructions in [[[#how-to-obtain-a-signature-s-public-key]]] to obtain the public key for that <code>keyId</code>.</li>
 <li>Extract the encryption algorithm from the signature. If it's <code>hs2019</code>, assume that means <code>rsa-sha256</code>, as described in [[[#survey-of-standards-compliance]]].
-<li>Extract the signed headers from the signature. They should ideally include <code>Date</code>, <code>Host</code>, and <code>Content-Type</code>. They may also include <code>Digest</code> and the <code>(request-target)</code> psuedo-header with the target URL.</li>
+<li>Extract the signed headers from the signature. They should ideally include <code>Date</code>, <code>Host</code>, and <code>Content-Type</code>. They may also include <code>Digest</code> and the <code>(request-target)</code> pseudo-header with the target URL.</li>
 <li>Generate the expected request body digest:
 <ol>
 <li>Generate the <a href="https://en.wikipedia.org/wiki/SHA-2">SHA-256 hash</a> of the request body.</li>
@@ -141,7 +141,7 @@
 <li>Extract the signature's <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.1.1"><code>keyId</code> parameter</a>. It should be a URL. If it has a fragment, discard it.</li>
 <li>If you cache remote ActivityPub objects locally, look up the object with that id in your local store.</li>
 <li>If you don't have it locally, fetch it.</li>
-<li>If it's an <a href="https://www.w3.org/TR/activitystreams-core/#actors">ActivityStreams 2 actor</a>, continue to step 7.</li>
+<li>If it's an [[[activitystreams-core]]] <a href="https://www.w3.org/TR/activitystreams-core/#actors">actor</a>, continue to step 7.</li>
 <li>If it's a raw <a href="https://w3c-ccg.github.io/security-vocab/#Key"><code>Key</code> object</a>, use its <code>controller</code> or <code>owner</code> property as the new key id, jump back to step 2, and repeat.</li>
 <li>Otherwise, the key can't be fetched at this time, and the signature verification fails.</li>
 <li>The public key object will be in the actor's <code>publicKey</code> property. If there are multiple values, find the one whose <code>id</code> matches the original <code>keyId</code>.</li>
@@ -156,18 +156,9 @@
       <h2>Additional considerations</h2>
 
     <section>
-      <h3>Compatibility with HTTP caching</h3>
-
-<p>HTTP responsees are cached in a wide variety of ways across the web. HTTP Signatures in ActivityPub requests can affect the resulting responses, so clients and servers both need to take signatures account when interacting with caches.</p>
-<p>The main thing ActivityPub servers need to do is include <code>Signature</code> in their <code>Vary</code> header for responses that depend on request signatures, eg if they require <a href="TODO">authorized fetch</a> and would return a 4xx error if a signature is missing or invalid. This prevents valid responses from being cached and returned to other future requests with missing or invalid signatures.</p>
-<p>(This is similar to including <code>Content-Type</code> in the <code>Vary</code> response header for URLs that can return either user-facing HTML or ActivityStreams JSON, depending on content negotiation.)</p>
-<p>One downside of this is that ActivityPub objects from servers that require authorized fetch generally can't be cached. HTTP Signatures include timestamps, and are generated by different private keys, so they'll almost never be the same across requests. This is an unfortunate side effect, but necessary for servers that want to control access based on the requester's identity.</p>
-    </section>
-
-    <section>
       <h3>Authorized fetch</h3>
 
-<p>Some servers have a feature called authorized fetch, aka secure mode, which requires all HTTP GET requests for ActivityPub objects to include HTTP Signatures. This is intended to increase the server's control over who can access its data. <a href="https://docs.joinmastodon.org/admin/config/#authorized_fetch">From Mastodon's documentation</a>:</p>
+<p>Some servers have a feature called <em>authorized fetch</em>, aka secure mode, which requires HTTP Signatures on all HTTP GET requests for objects and activities. This is intended to increase the server's control over who can access its data. <a href="https://docs.joinmastodon.org/admin/config/#authorized_fetch">From Mastodon's documentation</a>:</p>
 <blockquote>As a result, through the authentication mechanism and avoiding re-distribution mechanisms that do not have your server in the loop, it becomes possible to enforce who can and cannot retrieve even public content from your server, e.g. servers whose domains you have blocked.</blockquote>
 <p>Servers with authorized fetch enabled generally don't enforce any fine grained access control over the actors whose signatures they require to fetch data. They usually only reject requests from actors on domains that they've blocked at the server level. (This means that the name authorized fetch is maybe partially a misnomer, and something like signed fetch might be more appropriate.)</p>
     </section>
@@ -175,16 +166,24 @@
     <section>
       <h3>Instance actors</h3>
 
-<p>One consequence of <a href="https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#authorized_fetch">authorized fetch</a> is that signed fetches can end up in a kind of deadlock or infinite loop. If server a.example fetches <a href="https://b.example/bob">https://b.example/bob</a> with <a href="https://a.example/alice's">https://a.example/alice's</a> signature, and b.example doesn't have alice's public key, it will get it by fetching <a href="https://a.example/alice">https://a.example/alice</a> with <a href="https://b.example/bob's">https://b.example/bob's</a> signature. a.example won't have bob's public key either, so it will again try to fetch <a href="https://b.example/bob">https://b.example/bob</a>, and the cycle will continue.</p>
+<p>One consequence of [[[#authorized-fetch]]] is that signed fetches can end up in a kind of deadlock or infinite loop. If server a.example fetches <a href="https://b.example/bob">https://b.example/bob</a> with <a href="https://a.example/alice">https://a.example/alice</a>'s signature, and b.example doesn't have alice's public key, it will get it by fetching <a href="https://a.example/alice">https://a.example/alice</a> with <a href="https://b.example/bob's">https://b.example/bob's</a> signature. a.example won't have bob's public key either, so it will again try to fetch <a href="https://b.example/bob">https://b.example/bob</a>, and the cycle will continue.</p>
 <p>To prevent this, servers with authorized fetch enabled often use an <a href="https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor">instance actor</a> to sign object fetches. This is generally a "server-level" actor, separate from any normal user, that doesn't require an HTTP Signature to be fetched. This breaks the loop of fetching each actor back and forth to validate their signatures.</p>
     </section>
 
     <section>
+      <h3>Compatibility with HTTP caching</h3>
 
+<p>HTTP responses are cached in a wide variety of ways across the web. HTTP Signatures in ActivityPub requests can affect the resulting responses, so clients and servers both need to take signatures account when interacting with caches.</p>
+<p>The main thing ActivityPub servers need to do is include <code>Signature</code> in their <code>Vary</code> header for responses that depend on request signatures, eg if they require <a href="TODO">authorized fetch</a> and would return a 4xx error if a signature is missing or invalid. This prevents valid responses from being cached and returned to other future requests with missing or invalid signatures.</p>
+<p>(This is similar to including <code>Content-Type</code> in the <code>Vary</code> response header for URLs that can return either user-facing HTML or [[[activitystreams-core]]] JSON, depending on content negotiation.)</p>
+<p>One downside of this is that ActivityPub objects from servers that require authorized fetch generally can't be cached. HTTP Signatures include timestamps, and are generated by different private keys, so they'll almost never be the same across requests. This is an unfortunate side effect, but necessary for servers that want to control access based on the requester's identity.</p>
+    </section>
+
+    <section>
       <h3>How to upgrade supported versions</h3>
 
-<p>The HTTP Signatures standard has made a few backward-incompatible changes on its path to becoming a full Proposed Standard, [[RFC9421]]. Many fediverse servers currently handle older versions of the standard and aren't yet compatible with the final (<code>httpbis-19</code>) version. Here's advice on how to implement HTTP Signatures so as to be compatible with as many different servers as possible.</p>
-<p>The primary technique we recommend is "double-knocking." First, try generating or verifying an HTTP Signature with one version, ideally (but not necessarily) the latest. If the remote server rejects that signature, eg with an HTTP 401 response, or the incoming signature doesn't verify, try with another version. Repeat until a signature passes or you've tried all supported versions.</p>
+<p>The HTTP Signatures standard has made a few backward-incompatible changes on its path to becoming a full Proposed Standard, [[RFC9421]] aka <code>httpbis-19</code>. Many fediverse servers currently handle older versions of the standard and aren't yet compatible with the final version. Here's advice on how to implement HTTP Signatures so as to be compatible with as many different servers as possible.</p>
+<p>The primary technique we recommend is <em>double-knocking</em>. First, try generating or verifying an HTTP Signature with one version, ideally (but not necessarily) the latest. If the remote server rejects that signature, eg with an HTTP 401 response, or the incoming signature doesn't verify, try with another version. Repeat until a signature passes or you've tried all supported versions.</p>
 <p>(Many fediverse servers do process incoming activities asynchronously, <a href="https://socialhub.activitypub.rocks/t/report-errors-in-server-processing/3006/13">but they generally still <em>verify signatures</em> synchronously</a>, so double knocking is still viable when delivering activities to remote inboxes.)</p>
 <p>Here's a list of ways to check for different versions, in descending order:</p>
 <ul>
@@ -201,15 +200,15 @@
 
 <p>The ActivityPub standard briefly mentions authentication (and authorization), but omits specific needs or use cases for them. Over time, two clear uses for authentication in the fediverse have emerged.</p>
 <p>The first is proving and verifying that a given user created a given piece of data or performed a given action. This is the classic attribution problem in identity-based networks. (Note that this is separate from authorization or access control, ie determining whether a given user is <em>allowed</em> to access a given piece of data or perform a given action.)</p>
-<p>At a baseline level, this works. HTTP Signatures attached to ActivityPub inbox delivery requests can effectively verify the actor - or at least the server - who sent them. However, these HTTP Signatures are ephemeral. They only authenticate HTTP requests, not actual data. We'd often like to authenticate objects and activities in ActivityPub outside of inbox delivery requests, eg during <a href="https://www.w3.org/TR/activitypub/#inbox-forwarding">inbox forwarding</a>, or after they were initially created. HTTP Signatures can't do this.</p>
-<p>Some fediverse projects like Mastodon use <a href="https://web.archive.org/web/20170923124140/https://w3c-dvcg.github.io/ld-signatures/">LD Signatures 1.0</a> for those purposes instead, which serves them better, but isn't widely supported. Even Mastodon's support itself is limited and discouraged. <a href="https://docs.joinmastodon.org/spec/security/#ld">From their docs</a>:</p>
+<p>At a baseline level, this works. HTTP Signatures attached to ActivityPub inbox delivery requests can effectively verify the actor - or at least the server - who sent them. However, these signatures are ephemeral. They only authenticate HTTP requests, not long-lived data. We'd often like to authenticate objects and activities outside of inbox delivery requests, eg during <a href="https://www.w3.org/TR/activitypub/#inbox-forwarding">inbox forwarding</a>, or after they were initially created. HTTP Signatures can't do this.</p>
+<p>Some fediverse projects like Mastodon use <a href="https://web.archive.org/web/20170923124140/https://w3c-dvcg.github.io/ld-signatures/">LD Signatures 1.0</a> for those purposes instead, which works, but isn't widely supported. Even Mastodon's support itself is limited and discouraged. <a href="https://docs.joinmastodon.org/spec/security/#ld">From their docs</a>:</p>
 <blockquote>
 Mastodon’s current implementation of LD Signatures is outdated...Furthermore, the LD Signatures specification as a whole has been superseded by [[[vc-data-integrity]]], which is largely incompatible with the earlier LD Signature spec. For this reason, it is not advised to implement support for LD Signatures.
 </blockquote>
-<p>The second use case for authentication is access control, specifically whether to serve an ActivityPub GET request for a given AS2 object or activity. Fediverse users and servers routinely block other remote users and servers, and require [[[#authorized-fetch]]] via HTTP Signatures to identify the remote user making the request to determine whether they're blocked.</p>
+<p>The second use case for authentication is access control, specifically whether to serve an ActivityPub GET request for a given object or activity. Fediverse users and servers routinely block other remote users and servers, and require [[[#authorized-fetch]]] via HTTP Signatures to identify the remote user making the request to determine whether they're blocked.</p>
 <p>Fediverse servers prevent <em>interactions</em> from blocked users/servers via the first use case above: they use HTTP Signatures to identify the remote user, then check if they're blocked. This works, more or less.</p>
-<p>However, as a mechanism for <em>controlling access</em> to data, HTTP Signatures are only minimally effective, at best. Data that's truly non-public, eg direct messages and followers-only posts, are only delivered to the intended recipients, which their servers then control access to. This matches the fediverse's server-centric security model.</p>
-<p>Otherwise, for public data, HTTP Signatures and authorized fetch are not an effective way to block access to specific users or servers. Fediverse servers generally serve public data over the web freely, for anyone to see without logging in or fetching via ActivityPub or HTTP Signature. We've also seen <a href="https://wedistribute.org/2023/12/authorized-fetch-circumvented/">techniques for circumventing authorized fetch</a> by laundering requests from blocked servers with signatures from other "clean" (non-blocked) server domains.</p>
+<p>As for <em>controlling access</em> to non-public data, eg direct messages and followers-only posts, those are only delivered to the intended recipients' servers, which are expected to only serve them to authorized users. This matches the fediverse's server-centric security model.</p>
+<p>Otherwise, as a mechanism for controlling access to <em>public</em> data, HTTP Signatures are only minimally effective, if at all. This isn't a criticism as much as an unavoidable reality. Fediverse servers generally serve public data over the web freely, for anyone to see without logging in or fetching via ActivityPub or HTTP Signature. There's no obvious way to serve public data to anonymous, unauthenticated users, and still block access to specific people. Beyond that, we've seen <a href="https://wedistribute.org/2023/12/authorized-fetch-circumvented/">techniques that circumvent authorized fetch</a> by laundering requests from blocked servers with signatures from other "clean" (non-blocked) server domains.</p>
 <p>The conclusion seems to be that HTTP Signatures do serve real use cases in the fediverse, to some degree, but not well, and they're not a solid basis for comprehensive authentication or authorization.</p>
     </section>
   </body>
