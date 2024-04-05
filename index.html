@@ -44,6 +44,23 @@
 <p>This document describes the fediverse's current usage of HTTP Signatures, recommends best practices, and evaluates their success so far.
 
     <section>
+      <h3>Non-goals</h3>
+<p>Those are broad goals, and this report is limited in scope. Here are a number of non-goals that are intentionally not addressed or prioritized here.</p>
+<ul>
+<li> Authorization or access control.</li>
+<li> Reproducing the contents of existing standards like HTTP Signatures itself (any version), PEM/PKCS, SHA-256, [[[activitystreams-core]]], [[[vc-data-integrity]]], HTTP headers, hash algorithms or cipher suites or cryptosystems, etc.</li>
+<li> Strict standards compliance at the expense of interoperability.</li>
+<li> Providing the strongest security possible, at the expense of interoperability.</li>
+<li> Security analysis of HTTP Signatures, ActivityPub, their integration, or any individual implementation.</li>
+<li> Nomadic identity.</li>
+<li> Fragment handling in ActivityPub or ActivityStreams ids, beyond the minimum needed to resolve <code>keyId</code>s.</li>
+<li> ActivityPub client to server, or generating signatures client side.</li>
+</ul>
+
+<p>We also don't expect to update this report on an ongoing basis. It describes a single snapshot in time, when it was published.</p>
+    </section>
+
+    <section>
       <h3>Related work</h3>
 
 <p>Other decentralized social protocols have similar trust models and authentication techniques. Almost are all some combination of SSL and/or per-user asymmetric keypairs. Here are a few examples.</p>
