@@ -157,7 +157,7 @@
 <ol>
 <li>Extract the signature's <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.1.1"><code>keyId</code> parameter</a>. It should be a URL. If it has a fragment, discard it.</li>
 <li>If you cache remote ActivityPub objects locally, look up the object with that id in your local store.</li>
-<li>If you don't have it locally, fetch it.</li>
+<li>If you don't have it locally, fetch it. (If it's an [[[#instance-actor]]], the remote server generally won't expect or try to verify any signature on your own fetch request.)</li>
 <li>If it's an [[[activitystreams-core]]] <a href="https://www.w3.org/TR/activitystreams-core/#actors">actor</a>, continue to step 7.</li>
 <li>If it's a raw <a href="https://w3c-ccg.github.io/security-vocab/#Key"><code>Key</code> object</a>, use its <code>controller</code> or <code>owner</code> property as the new key id, jump back to step 2, and repeat.</li>
 <li>Otherwise, the key can't be fetched at this time, and the signature verification fails.</li>
