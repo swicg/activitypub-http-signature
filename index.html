@@ -35,7 +35,7 @@
       <h2>Introduction</h2>
       <p>[[ActivityPub]] lets people interact on the fediverse without an existing shared trust anchor. That's great! They still need some form of trust model, though, even if the protocol is decentralized. Specifically, they need to authenticate actors who send activities and request objects, and they need to check whether those actors are authorized to send those activities and request those objects.</p>
 
-<p>The ActivityPub standard leaves authentication and authorization largely unspecified. It implies that authorization is a "same origin model" (not to be confused with web browsers): an actor can generally only create, update, or delete objects with itself as actor or <code>attributedTo</code>. Some of this is deferred to [[[activitystreams-core]]].</p>
+<p><a href="https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization">The (non-normative)ActivityPub primer discusses authentication and authorization in detail</a>, but the standard itself leaves authentication and authorization largely unspecified. It implies that authorization is a "same origin model" (not to be confused with web browsers): an actor can generally only create, update, or delete objects with itself as actor or <code>attributedTo</code>. Some of this is deferred to [[[activitystreams-core]]].</p>
 
 <p>For authentication, in practice, the fediverse currently uses a custodial trust model. Each user has one or more asymmetric keypairs, and their instance (server) is generally trusted to hold their private keys, serve their public keys, generate signatures, and serve objects and send activities on their behalf. Most servers require SSL for server-to-server HTTP connections in order to authenticate server domains.</p>
 
@@ -181,10 +181,25 @@
     </section>
 
     <section>
-      <h3>Instance actors</h3>
+      <h3>Instance actor</h3>
 
 <p>One consequence of [[[#authorized-fetch]]] is that signed fetches can end up in a kind of deadlock or infinite loop. If server a.example fetches <a href="https://b.example/bob">https://b.example/bob</a> with <a href="https://a.example/alice">https://a.example/alice</a>'s signature, and b.example doesn't have alice's public key, it will get it by fetching <a href="https://a.example/alice">https://a.example/alice</a> with <a href="https://b.example/bob's">https://b.example/bob's</a> signature. a.example won't have bob's public key either, so it will again try to fetch <a href="https://b.example/bob">https://b.example/bob</a>, and the cycle will continue.</p>
 <p>To prevent this, servers with authorized fetch enabled often use an <a href="https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor">instance actor</a> to sign object fetches. This is generally a "server-level" actor, separate from any normal user, that doesn't require an HTTP Signature to be fetched. This breaks the loop of fetching each actor back and forth to validate their signatures.</p>
+    </section>
+
+    <section>
+      <h3>Handling <code>Delete</code>s of actors</h3>
+
+<p><code>Delete</code> activities that delete actors can have extra complications. The actor object may already be deleted on the source server, so fetching it might return a 410 or 404 error. Or, the <code>Delete</code> activity may be signed by the remote server's [[[#instance-actor]]] instead of the actor itself.</p>
+<p>Here's a process for handling <code>Delete</code> activities that delete actors:</p>
+<ol>
+<li>Attempt to verify the request's signature by following [[[#how-to-verify-a-signature]]]. If that succeeds, process the <code>Delete</code>.</li>
+<li>If the signature's `keyId` doesn't match the <code>Delete</code>'s <code>object</code> or its server's [[[#instance-actor]]], discard the <code>Delete</code> and do not process it.<br>
+<em>Note that there is no standard process for identifying a given server's instance actor! If in doubt, do not process the activity.</em></li>
+<li>If fetching the `keyId` in [[[#how-to-obtain-a-signature-s-public-key]]] fails with an HTTP 410 error, that means the actor has been deleted. Process the Delete.</li>
+<li>If fetching the `keyId` in [[[#how-to-obtain-a-signature-s-public-key]]] fails with an HTTP 404 error, the actor <em>may</em> have been deleted, or something else may have happened. Do not process the <code>Delete</code>.</li>
+</ol>
+
     </section>
 
     <section>
