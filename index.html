@@ -25,7 +25,7 @@
     <p><em>This document is non-normative.</em></p>
 
     <section id="abstract">
-      <p>Authentication is not specified by the [[[ActivityPub]]] standard. In practice, the fediverse mostly uses [[[RFC9421]]] to authenticate users making requests, using a relatively consistent profile. This document describes that profile and usage, recommends best practices, and evaluates their success so far.</p>
+      <p>Authentication is not specified by the [[[ActivityPub]]] standard. In practice, the fediverse mostly uses [[[RFC9421]]] to authenticate server-to-server requests, using a relatively consistent profile. This document describes that profile and usage, recommends best practices, and evaluates their success so far.</p>
     </section>
 
     <section id="sotd">
@@ -41,13 +41,13 @@
 
 <p>ActivityPub suggests [[[RFC9421]]] and <a href="https://web.archive.org/web/20170923124140/https://w3c-dvcg.github.io/ld-signatures/">Linked Data Signatures</a> as additional authentication mechanisms. ActivityPub inbox delivery POSTs generally include an HTTP Signature from the sending actor, and for inbox forwarding, sometimes also an LD Signature from the original actor. Object and activity GETs often include an HTTP Signature from the requesting actor.</p>
 
-<p>This document describes the fediverse's current usage of HTTP Signatures, recommends best practices, and evaluates their success so far.
+<p>This document describes the fediverse's current usage of HTTP Signatures for ActivityPub server-to-server requests, recommends best practices, and evaluates their success so far.
 
     <section>
       <h3>Non-goals</h3>
 <p>Those are broad goals, and this report is limited in scope. Here are a number of non-goals that are intentionally not addressed or prioritized here.</p>
 <ul>
-<li> Authorization or access control.</li>
+<li> Authorization or access control. We mention them here and there, but we don't try to cover them comprehensively.</li>
 <li> Reproducing the contents of existing standards like HTTP Signatures itself (any version), PEM/PKCS, SHA-256, [[[activitystreams-core]]], [[[vc-data-integrity]]], HTTP headers, hash algorithms or cipher suites or cryptosystems, etc.</li>
 <li> Strict standards compliance at the expense of interoperability.</li>
 <li> Providing the strongest security possible, at the expense of interoperability.</li>
@@ -61,7 +61,7 @@
     </section>
 
     <section>
-      <h3>Related work</h3>
+      <h3>Comparison with other networks</h3>
 
 <p>Other decentralized social protocols have similar trust models and authentication techniques. Almost are all some combination of SSL and/or per-user asymmetric keypairs. Here are a few examples.</p>
 <ul>
@@ -93,6 +93,15 @@
 </ul>
     </section>
 
+    <section>
+      <h3>Related work</h3>
+
+<p><a href="https://codeberg.org/aumetra/fep/src/branch/fep-e2ce/fep/e2ce/fep-e2ce.md">FEP-e2ce</a> describes a similar standardized profile for HTTP Signatures in ActivityPub and the fediverse. <a href="https://github.com/swicg/activitypub-http-signature/issues/19">Its authors supported us in writing this report</a>, which we appreciate greatly!</p>
+<p><a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/521a/fep-521a.md">FEP-521a</a> describes an alternative way to support multiple keys per actor with <code>Multikey</code>.</p>
+<p><a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/ae97/fep-ae97.md">FEP-ae97</a> proposes a way for clients to hold users' keys and attach data integrity proof style signatures to activities.</p>
+
+    </section>
+
     </section>
 
     <section>
@@ -108,7 +117,7 @@
 <li>If this is a new actor, generate and store a 2048-bit or larger <a href="https://en.wikipedia.org/wiki/RSA_(cryptosystem)">RSA keypair</a>. (Ed25519 is more modern, but not yet widely supported in the fediverse.) Use an existing, mature, widely used cryptography library.</li>
 </ol>
 </li>
-<li>Generate a <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Digest"><code>Digest</code></a> [[RFC3230]] header value :
+<li>Generate a <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Digest"><code>Digest</code></a> [[RFC3230]] header value. (Most servers should generally only require this for POST requests, so you may be able to omit it for GETs.)
 <ol>
 <li>Generate the <a href="https://en.wikipedia.org/wiki/SHA-2">SHA-256 hash</a> of the request body.</li>
 <li>Base64-encode that hash.</li>
@@ -159,7 +168,7 @@
 <li>If you cache remote ActivityPub objects locally, look up the object with that id in your local store.</li>
 <li>If you don't have it locally, fetch it. (If it's an [[[#instance-actor]]], the remote server generally won't expect or try to verify any signature on your own fetch request.)</li>
 <li>If it's an [[[activitystreams-core]]] <a href="https://www.w3.org/TR/activitystreams-core/#actors">actor</a>, continue to step 7.</li>
-<li>If it's a raw <a href="https://w3c-ccg.github.io/security-vocab/#Key"><code>Key</code> object</a>, use its <code>controller</code> or <code>owner</code> property as the new key id, jump back to step 2, and repeat.</li>
+<li>If it's a raw <a href="https://w3c-ccg.github.io/security-vocab/#Key"><code>Key</code> object</a>, use its <code>controller</code> or <code>owner</code> property as the new key id, jump back to step 2, and repeat. (This is necessary to confirm that the owner actually owns and uses this key.)</li>
 <li>Otherwise, the key can't be fetched at this time, and the signature verification fails.</li>
 <li>The public key object will be in the actor's <code>publicKey</code> property. If there are multiple values, find the one whose <code>id</code> matches the original <code>keyId</code>.</li>
 <li>Decode the <a href="https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail">PEM-encoded</a> public key in the key object's <code>publicKeyPem</code> property. This is based on <a href="https://w3c-ccg.github.io/security-vocab/#publicKey">LD Security Vocabulary v1</a>. If it starts with <code>-----BEGIN RSA PUBLIC KEY-----</code>, it's <a href="https://datatracker.ietf.org/doc/html/rfc3447">PKCS-1</a>. If it starts with <code>-----BEGIN PUBLIC KEY-----</code> (no <code>RSA</code>), it's <a href="https://datatracker.ietf.org/doc/html/rfc5208">PKCS-8</a>.</li>
@@ -206,7 +215,7 @@
       <h3>Compatibility with HTTP caching</h3>
 
 <p>HTTP responses are cached in a wide variety of ways across the web. HTTP Signatures in ActivityPub requests can affect the resulting responses, so clients and servers both need to take signatures account when interacting with caches.</p>
-<p>The main thing ActivityPub servers need to do is include <code>Signature</code> in their <code>Vary</code> header for responses that depend on request signatures, eg if they require <a href="TODO">authorized fetch</a> and would return a 4xx error if a signature is missing or invalid. This prevents valid responses from being cached and returned to other future requests with missing or invalid signatures.</p>
+<p>The main thing ActivityPub servers need to do is include <code>Signature</code> in their <code>Vary</code> header for responses that depend on request signatures, eg if they require [[[#authorized-fetch]]] and would return a 4xx error if a signature is missing or invalid. This prevents valid responses from being cached and returned to other future requests with missing or invalid signatures.</p>
 <p>(This is similar to including <code>Content-Type</code> in the <code>Vary</code> response header for URLs that can return either user-facing HTML or [[[activitystreams-core]]] JSON, depending on content negotiation.)</p>
 <p>One downside of this is that ActivityPub objects from servers that require authorized fetch generally can't be cached. HTTP Signatures include timestamps, and are generated by different private keys, so they'll almost never be the same across requests. This is an unfortunate side effect, but necessary for servers that want to control access based on the requester's identity.</p>
     </section>
