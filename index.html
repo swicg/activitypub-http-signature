@@ -154,7 +154,7 @@
 </ol>
 </li>
 <li>Optionally compare this to the request's <code>Digest</code> header. If they don't match, the signature is invalid, and you can optionally return an informative message in the error response.</li>
-<li>Compare the request's <code>Date</code> header to the current time. If they differ significantly, eg more than an hour, the verification fails.</li>
+<li>Compare the request's <code>Date</code> header to the current time. If they differ significantly, the verification fails. (The standards don't give a concrete time window to use for this comparison. In practice, an hour plus a few minutes buffer in either direction may be a good value, to account for both clock skew and differences in time zone/daylight savings time configuration across systems.)</li>
 <li>Follow <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#autoid-15">cavage-12 section 2.5</a> to check the signature in the <code>Signature</code> header.</li>
 </ol>
     </section>
