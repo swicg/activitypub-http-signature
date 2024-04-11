@@ -156,6 +156,7 @@
 <li>Optionally compare this to the request's <code>Digest</code> header. If they don't match, the signature is invalid, and you can optionally return an informative message in the error response.</li>
 <li>Compare the request's <code>Date</code> header to the current time. If they differ significantly, the verification fails. (The standards don't give a concrete time window to use for this comparison. In practice, an hour plus a few minutes buffer in either direction may be a good value, to account for both clock skew and differences in time zone/daylight savings time configuration across systems.)</li>
 <li>Follow <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#autoid-15">cavage-12 section 2.5</a> to check the signature in the <code>Signature</code> header.</li>
+<li>If that verification fails, and you're using a locally cached public key, the actor may have rotated their key (see [[[#key-rotation]]]). Go back to step 3, re-fetch the actor and key from their source, and try again.</li>
 </ol>
     </section>
 
@@ -232,6 +233,15 @@
 <li>Does the signature use the <code>hs2019</code> placeholder algorithm? This was added in <code>cavage-12</code>, then removed again in later versions. <a href="https://datatracker.ietf.org/doc/html/rfc9421#iana-hsa-contents">It's not present in the final proposed standard.</a> If the signature uses <code>hs2019</code> and fails, try again with <code>rsa-sha256</code>.</li>
 <li>Does the signature include the <code>(request-target)</code>, <code>(created)</code>, or  <code>(expires)</code> pseudo-headers? If so, and the signature fails, try replacing them with the <code>Date</code> and/or <code>Host</code> headers.</li>
 </ul>
+    </section>
+
+    <section>
+      <h3>Key rotation</h3>
+
+<p>Keys don't always stay the same forever. Changing an actor's key is called <em>key rotation</em>, and can be a good idea to improve or maintain security in a number of situations. If a private key is leaked or compromised, you should immediately stop using it and switch to a new key instead. You can also do this proactively, regularly, in case of a leak or compromise that you haven't discovered yet. Or the key may have been lost, and can't be restored from backup.</p>
+<p><a href="https://socialhub.activitypub.rocks/t/key-rotation-notification/562">There are two common types of key rotation in the fediverse</a>: <em>signed</em>, where you send an <code>Update</code> activity for the actor with the new key to all followers, and <em>blind</em>, where you don't, for plausible deniability of past activities.</p>
+<p>[[[#how-to-verify-a-signature]]] step 10 mentions how to handle key rotation when you're verifying a signature. RFC9421 discusses key rotation briefly in <a href="https://datatracker.ietf.org/doc/html/rfc9421#section-7.3.2"><em>7.3.2 Key theft</em></a> and <a href="https://datatracker.ietf.org/doc/html/rfc9421#section-8.1"><em>8.1. Identification through Keys</em></a>.</p>
+
     </section>
 
     </section>
