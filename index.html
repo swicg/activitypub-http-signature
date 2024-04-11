@@ -187,7 +187,8 @@
 
 <p>Some servers have a feature called <em>authorized fetch</em>, aka secure mode, which requires HTTP Signatures on all HTTP GET requests for objects and activities. This is intended to increase the server's control over who can access its data. <a href="https://docs.joinmastodon.org/admin/config/#authorized_fetch">From Mastodon's documentation</a>:</p>
 <blockquote>As a result, through the authentication mechanism and avoiding re-distribution mechanisms that do not have your server in the loop, it becomes possible to enforce who can and cannot retrieve even public content from your server, e.g. servers whose domains you have blocked.</blockquote>
-<p>Servers with authorized fetch enabled generally don't enforce any fine grained access control over the actors whose signatures they require to fetch data. They usually only reject requests from actors on domains that they've blocked at the server level. (This means that the name authorized fetch is maybe partially a misnomer, and something like signed fetch might be more appropriate.)</p>
+<p>For public posts and data, servers with authorized fetch enabled generally don't enforce any fine grained access control over the actors whose signatures they require. They usually only reject requests from actors on domains that they've blocked at the server level. (This means that the name authorized fetch is maybe partially a misnomer, and something like signed fetch might be more appropriate.)</p>
+<p>For non-public data, eg followers-only or mention-only posts aka direct messages, servers generally do check that GET requests are signed by actors who should have access to that data.</p>
     </section>
 
     <section>
