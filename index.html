@@ -225,7 +225,7 @@
     <section>
       <h3>How to upgrade supported versions</h3>
 
-<p>The HTTP Signatures standard has made a few backward-incompatible changes on its path to becoming a full Proposed Standard, [[RFC9421]] aka <code>httpbis-19</code>. Many fediverse servers currently handle older versions of the standard and aren't yet compatible with the final version. Here's advice on how to implement HTTP Signatures so as to be compatible with as many different servers as possible.</p>
+<p>The HTTP Signatures standard has made a few backward-incompatible changes on its path to becoming a full Proposed Standard, [[RFC9421]]. Many fediverse servers currently handle older versions of the standard and aren't yet compatible with the final version. Here's advice on how to implement HTTP Signatures so as to be compatible with as many different servers as possible.</p>
 <p>The primary technique we recommend is <em>double-knocking</em>. First, try generating or verifying an HTTP Signature with one version, ideally (but not necessarily) the latest. If the remote server rejects that signature, eg with an HTTP 401 response, or the incoming signature doesn't verify, try with another version. Repeat until a signature passes or you've tried all supported versions.</p>
 <p>(Many fediverse servers do process incoming activities asynchronously, <a href="https://socialhub.activitypub.rocks/t/report-errors-in-server-processing/3006/13">but they generally still <em>verify signatures</em> synchronously</a>, so double knocking is still viable when delivering activities to remote inboxes.)</p>
 <p>Here's a list of ways to check for different versions, in descending order:</p>
