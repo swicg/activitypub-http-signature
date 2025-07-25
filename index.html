@@ -165,13 +165,14 @@
 
 <p>Here's how to find the public key to use to verify a fediverse HTTP Signature:</p>
 <ol>
-<li>Extract the signature's <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.1.1"><code>keyId</code> parameter</a>. It should be a URL. If it has a fragment, discard it.</li>
+<li>Extract the signature's <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.1.1"><code>keyId</code> parameter</a>. It should be a URL.</li>
 <li>If you cache remote ActivityPub objects locally, look up the object with that id in your local store.</li>
-<li>If you don't have it locally, fetch it. (If it's an [[[#instance-actor]]], the remote server generally won't expect or try to verify any signature on your own fetch request.)</li>
+<li>If you don't have it locally, fetch it, discarding its fragment first if necessary. (If it's an [[[#instance-actor]]], the remote server generally won't expect or try to verify any signature on your own fetch request.)</li>
 <li>If it's an [[[activitystreams-core]]] <a href="https://www.w3.org/TR/activitystreams-core/#actors">actor</a>, continue to step 7.</li>
 <li>If it's a raw <a href="https://w3c-ccg.github.io/security-vocab/#Key"><code>Key</code> object</a>, use its <code>controller</code> or <code>owner</code> property as the new key id, jump back to step 2, and repeat. (This is necessary to confirm that the owner actually owns and uses this key.)</li>
 <li>Otherwise, the key can't be fetched at this time, and the signature verification fails.</li>
-<li>The public key object will be in the actor's <code>publicKey</code> property. If there are multiple values, find the one whose <code>id</code> matches the original <code>keyId</code>.</li>
+<li>The public key object will be the actor's <code>publicKey</code> property. It may be a compacted id, or an expanded object, or a list of ids or objects. If it's a list, find the one whose <code>id</code> matches the original <code>keyId</code>. If it's an id, fetch it from your local cache, or if necessary over the network. If <code>publicKey</code> is missing, or doesn't have `publicKeyPem`, return a <em>key not found</em> error.</li>
+<li>Check that this key object's <code>id</code> matches the original <code>keyId</code> from step 1, including fragments (if any) and converted to absolute URIs. If they don't match, return a <em>key not matching</em> error.
 <li>The <a href="https://en.wikipedia.org/wiki/Privacy-Enhanced_Mail">PEM-encoded</a> public key will be in the key object's <code>publicKeyPem</code> property. This is based on <a href="https://w3c-ccg.github.io/security-vocab/#publicKey">LD Security Vocabulary v1</a>. Use your cryptography library to decode it as a PEM public key. (It may be encoded as <a href="https://datatracker.ietf.org/doc/html/rfc3447">PKCS-1</a>, <a href="https://datatracker.ietf.org/doc/html/rfc5280#appendix-A">X.509 SPKI</a>, or something else; your library should detect its format automatically.)</li>
 </ol>
 <p>Note that a <a href="https://w3c.github.io/vc-data-integrity/vocab/security/vocabulary.html">newer version of the LD Security Vocabulary</a> (part of <a href="https://w3c.github.io/vc-data-integrity/">Verifiable Credential Data Integrity</a>) removes the <code>publicKey</code> property. <a href="https://codeberg.org/fediverse/fep/src/branch/main/fep/521a/fep-521a.md">FEP-521a</a> is an alternative that supports key objects anywhere in actors, eg in the <code>assertionMethod</code> property, but it's not yet widely supported in the fediverse.</p>
