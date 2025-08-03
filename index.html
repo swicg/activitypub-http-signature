@@ -145,7 +145,7 @@
 <li>Extract the <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#autoid-6"><code>keyId</code> parameter</a> from the HTTP Signature.</li>
 <li>Follow the instructions in [[[#how-to-obtain-a-signature-s-public-key]]] to obtain the public key for that <code>keyId</code>.</li>
 <li>Extract the encryption algorithm from the signature. If it's <code>hs2019</code>, assume that means <code>rsa-sha256</code>, as described in [[[#survey-of-standards-compliance]]].
-<li>Extract the signed headers from the signature. They should ideally include <code>Date</code>, <code>Host</code>, and <code>Content-Type</code>. They may also include <code>Digest</code> and the <code>(request-target)</code> pseudo-header with the target URL.</li>
+<li>Extract the signed headers from the signature. Often these will include eg <code>Date</code>, <code>Host</code>, <code>Digest</code>, <code>Content-Type</code>, and the <code>(request-target)</code> pseudo-header with the target URL. Most fediverse software will reject GET requests without signed <code>(request-target)</code>, and POST requests without signed <code>Digest</code>, in order to prevent replay attacks.</li>
 <li>Generate the expected request body digest:
 <ol>
 <li>Generate the <a href="https://en.wikipedia.org/wiki/SHA-2">SHA-256 hash</a> of the request body.</li>
@@ -153,7 +153,7 @@
 <li>Prefix the base64-encoded hash with the string <code>SHA-256=</code>.</li>
 </ol>
 </li>
-<li>Optionally compare this to the request's <code>Digest</code> header. If they don't match, the signature is invalid, and you can optionally return an informative message in the error response.</li>
+<li>If the request has a body, compare it to the <code>Digest</code> header. If they don't match, the signature is invalid, and most fediverse software will reject it in order to prevent replay attacks.</li>
 <li>Compare the request's <code>Date</code> header to the current time. If they differ significantly, the verification fails. (The standards don't give a concrete time window to use for this comparison. In practice, an hour plus a few minutes buffer in either direction may be a good value, to account for both clock skew and differences in time zone/daylight savings time configuration across systems.)</li>
 <li>Follow <a href="https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#autoid-15">cavage-12 section 2.5</a> to check the signature in the <code>Signature</code> header.</li>
 <li>If that verification fails, and you're using a locally cached public key, the actor may have rotated their key (see [[[#key-rotation]]]). Go back to step 3, re-fetch the actor and key from their source, and try again.</li>
